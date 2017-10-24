@@ -4,7 +4,7 @@
 docker-push-latest-if-changed
 =============================
 
-At yelp, we build base images and push them daily to our internal registry.
+At Yelp, we build base images and push them daily to our internal registry.
 The reason we chose to build daily is to receive new security packages when
 they become available.  The cost of this is your base image is invalidated
 every day requiring a brand new build of your consuming image.  This tool
@@ -13,7 +13,7 @@ if the image actually changes in a meaningful way.
 
 ## Installation
 
-### python installation
+### Python installation
 
 `pip install docker-push-latest-if-changed`
 
