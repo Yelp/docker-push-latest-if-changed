@@ -1,0 +1,13 @@
+#!/usr/bin/make -f
+%:
+	dh $@
+
+override_dh_auto_build:
+	@true
+
+override_dh_auto_test:
+	@true
+
+override_dh_install:
+	mkdir -p debian/docker-push-latest-if-changed/usr/bin
+	cp docker_push_latest_if_changed.py debian/docker-push-latest-if-changed/usr/bin/docker-push-latest-if-changed

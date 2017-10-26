@@ -1,0 +1,6 @@
+/*.log
+/files
+/*.debhelper
+/*.substvars
+/docker-push-latest-if-changed
+/debhelper-build-stamp
