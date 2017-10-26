@@ -13,7 +13,7 @@ if the image actually changes in a meaningful way.
 
 ## Installation
 
-### Python installation
+### python installation
 
 `pip install docker-push-latest-if-changed`
 
