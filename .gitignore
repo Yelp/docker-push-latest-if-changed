@@ -3,4 +3,6 @@
 /.cache
 /.coverage
 /.tox
+/build
+/dist
 /venv*

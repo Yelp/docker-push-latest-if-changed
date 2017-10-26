@@ -1,0 +1,21 @@
+Source: docker-push-latest-if-changed
+Section: utils
+Priority: extra
+Maintainer: Chris Kuehl <ckuehl@yelp.com>
+Build-Depends: debhelper (>= 9)
+Standards-Version: 3.9.6
+Vcs-Git: https://github.com/Yelp/docker-push-latest-if-changed.git
+Vcs-Browser: https://github.com/Yelp/docker-push-latest-if-changed
+Homepage: https://github.com/Yelp/docker-push-latest-if-changed
+
+Package: docker-push-latest-if-changed
+Architecture: all
+Depends: python3.6
+Description: push a new Docker image only if changed
+ docker-push-latest-if-changed compares a new Docker image to an old one,
+ comparing installed system packages and commands run to generate the image.
+ .
+ It will only push a new image if it detects a real change. This helps reduce
+ the cost of rebuilding base images frequently; you can build them often but
+ only push when necessary. Without this tool, every build of the base image
+ would require all downstream images to also rebuild.
