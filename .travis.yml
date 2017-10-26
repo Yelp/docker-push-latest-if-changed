@@ -1,8 +1,6 @@
 language: python
 matrix:
     include:
-        -   env: TOXENV=py35
-            python: 3.5
         -   env: TOXENV=py36
             python: 3.6
 install: pip install coveralls tox
@@ -11,4 +9,4 @@ after_success: coveralls
 cache:
     directories:
         - $HOME/.cache/pip
-        - $HOME/.pre-commit
+        - $HOME/.cache/pre-commit
