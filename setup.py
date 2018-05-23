@@ -14,6 +14,9 @@ setup(
         'Programming Language :: Python :: Implementation :: CPython',
     ],
     py_modules=['docker_push_latest_if_changed'],
+    install_requires=[
+        'docker-py >= 1.2.3, < 2'
+    ],
     entry_points={'console_scripts': [
         'docker-push-latest-if-changed = docker_push_latest_if_changed:main',
     ]},
