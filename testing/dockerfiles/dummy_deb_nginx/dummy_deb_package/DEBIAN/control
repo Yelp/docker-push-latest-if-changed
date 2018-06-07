@@ -1,0 +1,7 @@
+Package: dummy-deb
+Architecture: all
+Maintainer: haha
+Depends: debconf (>= 0.5.00)
+Priority: optional
+Version: 0.1
+Description: foobar

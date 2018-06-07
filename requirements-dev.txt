@@ -1,4 +1,5 @@
 coverage
+ephemeral-port-reserve
 flake8
 pre-commit
 pytest

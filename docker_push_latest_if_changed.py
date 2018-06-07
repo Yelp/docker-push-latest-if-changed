@@ -1,161 +1,113 @@
 #!/usr/bin/env python3
 import argparse
 import hashlib
-import logging
 from collections import namedtuple
 
-import docker
+import docker_util
+from verbose_print import print_v
+from verbose_print import print_vv
+from verbose_print import set_print_level
 
 
 ImageParityFields = namedtuple(
     'ImageParityFields',
-    ['image_cmds_hash', 'packages_hash'],
+    ('image_cmds_hash', 'packages_hash'),
 )
 
-GET_PACKAGE_LIST_COMMAND = 'dpkg -l'
+GET_PACKAGE_LIST_COMMAND = ['dpkg', '-l']
 
 
 def _docker_push_latest_if_changed(source, target, is_dry_run):
-    docker_client = _get_docker_client()
-    _validate_source(source, docker_client)
+    _validate_source(source)
     target = _get_sanitized_target(source, target)
 
-    logging.info('Pushing source image')
-    _push_image(source, docker_client, is_dry_run)
+    print_v('Pushing source image')
+    docker_util.push_image(source, is_dry_run)
     try:
-        logging.warning('Pulling target image')
-        docker_client.pull(target)
-    except docker.errors.NotFound:
-        logging.warning((
-            'Target image {} was not found in the registry. '
+        print('Pulling target image...')
+        docker_util.pull_image(target)
+    except docker_util.ImageNotFoundError:
+        print((
+            f'Target image {target} was not found in the registry. '
             'Going to attempt to tag and push the target image anyway.'
-        ).format(target))
-        _tag_image(source, target, docker_client, is_dry_run)
-        _push_image(target, docker_client, is_dry_run)
+        ))
+        docker_util.tag_image(source, target, is_dry_run)
+        docker_util.push_image(target, is_dry_run)
     else:
-        if _is_image_changed(source, target, docker_client):
-            logging.warning((
+        if _is_image_changed(source, target):
+            print((
                 'Source image was found to be different from the current '
                 'version of the target image. Tagging and pushing new target '
                 'image.'
             ))
-            _tag_image(source, target, docker_client, is_dry_run)
-            _push_image(target, docker_client, is_dry_run)
+            docker_util.tag_image(source, target, is_dry_run)
+            docker_util.push_image(target, is_dry_run)
         else:
-            logging.warning((
+            print((
                 'Source image was found to be the same as the current '
                 'version of the target image. Not pushing the target image.'
             ))
 
 
-def _validate_source(source, docker_client):
-    logging.debug('Docker inspecting source to verify it exists')
-    source_inspect = docker_client.inspect_image(source)
+def _validate_source(source):
+    print_vv('Docker inspecting source to verify it exists')
+    source_inspect = docker_util.inspect_image(source)
     if source not in source_inspect['RepoTags']:
         # Hack to check if source is just a repo without a tag.
-        # An inspect_image query with just a repo will search for
+        # An inspect query with just a repo will search for
         # latest, but the result in RepoTags will only have
         # repo:latest and not just repo
         raise ValueError((
-            'The source image {source} does not have a tag! '
+            f'The source image {source} does not have a tag! '
             'You must include a tag in the source parameter.'
-        ).format(source=source))
+        ))
 
 
 def _get_sanitized_target(source, target):
     if not target:
         repository = source.rsplit(':', 1)[0]
         target = '{repository}:latest'.format(repository=repository)
-        logging.info((
-            'Target was not given so falling back to ":latest". '
-            'Target is now {}'
-        ).format(target))
+        print_v((
+            'Target was not given, so falling back to "{repository}:latest". '
+            f'Target is now {target}'
+        ))
     if source == target:
         raise ValueError((
-            'The source ({source}) and target ({target}) repo:tags are both '
-            'the same! Source and target cannot be the same.'
-        ).format(source=source, target=target))
+            f'The source ({source}) and target ({target}) repo:tags are both '
+            'the same! Source and target tags cannot be the same.'
+        ))
     return target
 
 
-def _tag_image(source, target, docker_client, is_dry_run):
-    logging.warning('Tagging target image {}'.format(target))
-    if is_dry_run:
-        logging.warning(
-            'WARNING: Image was not actually tagged since this is a dry run'
-        )
-    else:
-        docker_client.tag(source, target)
-
-
-def _push_image(image, docker_client, is_dry_run):
-    logging.warning('Pushing target image {} ...'.format(image))
-    if is_dry_run:
-        logging.warning(
-            'WARNING: Image was not actually pushed since this is a dry run'
-        )
-    else:
-        docker_client.push(image)
-
-
-def _is_image_changed(source, target, docker_client):
-    source_parity_fields = _get_image_parity_fields(source, docker_client)
-    target_parity_fields = _get_image_parity_fields(target, docker_client)
-    logging.info('Source parity fields: {}'.format(source_parity_fields))
-    logging.info('Target parity fields: {}'.format(target_parity_fields))
+def _is_image_changed(source, target):
+    source_parity_fields = _get_image_parity_fields(source)
+    target_parity_fields = _get_image_parity_fields(target)
+    print_v(f'Source parity fields: {source_parity_fields}')
+    print_v(f'Target parity fields: {target_parity_fields}')
     if source_parity_fields == target_parity_fields:
         return False
     else:
         return True
 
 
-def _get_image_parity_fields(image, docker_client):
+def _get_image_parity_fields(image):
     return ImageParityFields(
-        image_cmds_hash=_get_image_cmds_hash(image, docker_client),
-        packages_hash=_get_packages_hash(image, docker_client),
+        image_cmds_hash=_get_image_cmds_hash(image),
+        packages_hash=_get_packages_hash(image),
     )
 
 
-def _get_image_cmds_hash(image, docker_client):
-    image_history = docker_client.history(image)
-    docker_cmds_blob = _get_docker_cmds_blob(image_history)
-    logging.debug((
-        'Docker commands blob for {image}:\n'
-        '{docker_cmds_blob}'
-    ).format(image=image, docker_cmds_blob=docker_cmds_blob))
-    cmds_hash = _get_sha256_hexdigest(docker_cmds_blob)
+def _get_image_cmds_hash(image):
+    image_cmds = docker_util.get_image_cmds(image)
+    print_vv(f'Docker commands for {image}:\n{image_cmds}')
+    cmds_hash = _get_sha256_hexdigest(image_cmds)
     return cmds_hash
 
 
-def _get_docker_cmds_blob(history):
-    docker_cmds_blob = []
-    for layer_number, layer in enumerate(history):
-        cmd = layer['CreatedBy']
-        layer_blob = 'Layer {layer_number}: {cmd}\n'.format(
-            layer_number=layer_number,
-            cmd=cmd,
-        )
-        docker_cmds_blob.append(layer_blob)
-    docker_cmds_blob = ''.join(docker_cmds_blob).encode()
-    return docker_cmds_blob
-
-
-def _get_packages_hash(image, docker_client):
-    container = docker_client.create_container(image, GET_PACKAGE_LIST_COMMAND)
-    try:
-        docker_client.start(container)
-    except docker.errors.APIError:
-        logging.error((
-            'Attempt to get package list from the image {image} with the '
-            'command {package_list_command} failed!'
-        ).format(image=image, package_list_command=GET_PACKAGE_LIST_COMMAND))
-        raise
-    container_packages_blob = docker_client.logs(container)
-    logging.debug((
-        'Packages blob for {image}:\n'
-        '{container_packages_blob}'
-    ).format(image=image, container_packages_blob=container_packages_blob))
-    packages_hash = _get_sha256_hexdigest(container_packages_blob)
+def _get_packages_hash(image):
+    packages_blob = docker_util.run_in_image(image, GET_PACKAGE_LIST_COMMAND)
+    print_vv(f'Packages blob for {image}:\n{packages_blob}')
+    packages_hash = _get_sha256_hexdigest(packages_blob)
     return packages_hash
 
 
@@ -163,20 +115,6 @@ def _get_sha256_hexdigest(blob):
     sha256_hash = hashlib.sha256()
     sha256_hash.update(blob)
     return sha256_hash.hexdigest()
-
-
-def _get_docker_client():
-    return docker.Client(version='auto')
-
-
-def _setup_logging(verbosity):
-    logger = logging.getLogger()
-    if verbosity == 0:
-        logger.setLevel(logging.WARNING)
-    elif verbosity == 1:
-        logger.setLevel(logging.INFO)
-    else:
-        logger.setLevel(logging.DEBUG)
 
 
 def main(argv=None):
@@ -214,13 +152,9 @@ def main(argv=None):
 
     )
     arguments = parser.parse_args(argv)
-    _setup_logging(arguments.verbose)
+    set_print_level(arguments.verbose)
     _docker_push_latest_if_changed(
         arguments.source,
         arguments.target,
         arguments.dry_run
     )
-
-
-if __name__ == '__main__':
-    exit(main())
