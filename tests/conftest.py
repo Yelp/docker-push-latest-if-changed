@@ -10,7 +10,7 @@ import urllib.request
 import pytest
 from ephemeral_port_reserve import reserve
 
-from docker_util import inspect_image
+from docker_push_latest_if_changed import _inspect_image
 
 
 DOCKER_REGISTRY_IMAGE_NAME = 'registry'
@@ -30,6 +30,7 @@ def fake_docker_registry():
         '-d',
         '-p',
         f'127.0.0.1:{port}:5000',
+        '--rm',
         '--name',
         fake_registry_name,
         'registry'
@@ -55,7 +56,7 @@ def fake_image_bar_name():
     _delete_image(image_name)
 
 
-@pytest.fixture()
+@pytest.fixture
 def dummy_deb_nginx():
     image_name = _build_testing_image('dummy_deb_nginx')
     port = reserve()
@@ -66,18 +67,19 @@ def dummy_deb_nginx():
         '-d',
         '-p',
         f'127.0.0.1:{port}:80',
+        '--rm',
         '--name',
         dummy_deb_nginx_name,
         image_name
     )
     subprocess.check_call(run_dummy_deb_nginx_command)
-    image_ip = inspect_image(dummy_deb_nginx_name)[
+    image_ip = _inspect_image(dummy_deb_nginx_name)[
         'NetworkSettings']['Networks']['bridge']['IPAddress']
     yield (dummy_deb_nginx_name, image_ip)
     _delete_image(image_name)
 
 
-@pytest.fixture()
+@pytest.fixture
 def fake_baz_dummy_deb_images(tmpdir, dummy_deb_nginx):
     nginx_name, nginx_ip = dummy_deb_nginx
     baz_path = _create_baz_dockerfile(nginx_ip, tmpdir)
@@ -122,7 +124,7 @@ def _get_name_with_random_suffix(name):
 
 
 def _delete_image(image_tag):
-    image_id = inspect_image(image_tag)['Id']
+    image_id = _inspect_image(image_tag)['Id']
     subprocess.check_call(('docker', 'rmi', '-f', image_id))
 
 

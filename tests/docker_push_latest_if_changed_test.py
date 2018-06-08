@@ -1,21 +1,20 @@
 import re
-import subprocess
 
 import pytest
 
-from docker_push_latest_if_changed import ImageParityFields
+from docker_push_latest_if_changed import _ImageKey
+from docker_push_latest_if_changed import _push_image
+from docker_push_latest_if_changed import _tag_image
+from docker_push_latest_if_changed import ImageNotFoundError
 from docker_push_latest_if_changed import main
-from docker_util import ImageNotFoundError
-from docker_util import push_image
-from docker_util import tag_image
 from testing.helpers import are_two_images_on_registry_the_same
 from testing.helpers import get_image
 from testing.helpers import is_image_on_registry
 from testing.helpers import is_local_image_the_same_on_registry
 
 
-IMAGE_PARITY_RE_SUFFIX = (
-    "ImageParityFields\(image_cmds_hash='(?P<image_cmds_hash>\w+)', "
+IMAGE_KEY_RE_SUFFIX = (
+    "_ImageKey\(commands_hash='(?P<commands_hash>\w+)', "
     "packages_hash='(?P<packages_hash>\w+)'"
 )
 
@@ -27,14 +26,14 @@ def test_push_new_image(
     fake_image_bar_name,
 ):
     source = get_image(fake_image_foo_name, 'foo', fake_docker_registry)
-    tag_image(source.name, source.registry_tag, False)
+    _tag_image(source.name, source.registry_tag, is_dry_run=False)
 
     target = get_image(fake_image_bar_name, 'latest', fake_docker_registry)
-    tag_image(target.name, target.registry_tag, False)
+    _tag_image(target.name, target.registry_tag, is_dry_run=False)
 
     assert not is_image_on_registry(source)
     assert not is_image_on_registry(target)
-    push_image(target.registry_tag, False)
+    _push_image(target.registry_tag, is_dry_run=False)
     out, _ = capsys.readouterr()
     assert f'Pushing image {target.registry_tag}' in out
     assert not is_image_on_registry(source)
@@ -53,14 +52,14 @@ def test_push_new_image_dry_run(
     fake_image_bar_name,
 ):
     source = get_image(fake_image_foo_name, 'foo', fake_docker_registry)
-    tag_image(source.name, source.registry_tag, False)
+    _tag_image(source.name, source.registry_tag, is_dry_run=False)
 
     target = get_image(fake_image_bar_name, 'latest', fake_docker_registry)
-    tag_image(target.name, target.registry_tag, False)
+    _tag_image(target.name, target.registry_tag, is_dry_run=False)
 
     assert not is_image_on_registry(source)
     assert not is_image_on_registry(target)
-    push_image(target.registry_tag, False)
+    _push_image(target.registry_tag, is_dry_run=False)
     out, _ = capsys.readouterr()
     assert f'Pushing image {target.registry_tag}' in out
     assert not is_image_on_registry(source)
@@ -82,14 +81,14 @@ def test_push_new_image_dry_run(
 
 def test_two_same_images(capsys, fake_docker_registry, fake_image_foo_name):
     source = get_image(fake_image_foo_name, 'foo', fake_docker_registry)
-    tag_image(source.name, source.registry_tag, False)
+    _tag_image(source.name, source.registry_tag, is_dry_run=False)
 
     target = get_image(fake_image_foo_name, 'latest', fake_docker_registry)
-    tag_image(target.name, target.registry_tag, False)
+    _tag_image(target.name, target.registry_tag, is_dry_run=False)
 
     assert not is_image_on_registry(source)
     assert not is_image_on_registry(target)
-    push_image(target.registry_tag, False)
+    _push_image(target.registry_tag, is_dry_run=False)
     out, _ = capsys.readouterr()
     assert f'Pushing image {target.registry_tag}' in out
     assert not is_image_on_registry(source)
@@ -114,46 +113,40 @@ def test_two_same_images_with_different_packages(
         'baz',
         fake_docker_registry,
     )
-    tag_image(source.name, source.registry_tag, False)
+    _tag_image(source.name, source.registry_tag, is_dry_run=False)
 
     target = get_image(
         baz_no_dummy_deb_name,
         'latest',
         fake_docker_registry,
     )
-    tag_image(target.name, target.registry_tag, False)
+    _tag_image(target.name, target.registry_tag, is_dry_run=False)
 
     assert not is_image_on_registry(source)
     assert not is_image_on_registry(target)
-    push_image(target.registry_tag, False)
+    _push_image(target.registry_tag, is_dry_run=False)
     out, _ = capsys.readouterr()
     assert f'Pushing image {target.registry_tag}' in out
     assert not is_image_on_registry(source)
     assert is_image_on_registry(target)
 
-    main((
-        '--source',
-        source.registry_tag,
-        '--target',
-        target.registry_tag,
-        '--verbose',
-    ))
+    main(('--source', source.registry_tag, '--target', target.registry_tag))
 
     out, _ = capsys.readouterr()
-    source_parity = ImageParityFields(
+    source_key = _ImageKey(
         **re.search(
-            f'Source parity fields: {IMAGE_PARITY_RE_SUFFIX}',
+            f'Source key: {IMAGE_KEY_RE_SUFFIX}',
             out,
         ).groupdict()
     )
-    target_parity = ImageParityFields(
+    target_key = _ImageKey(
         **re.search(
-            f'Target parity fields: {IMAGE_PARITY_RE_SUFFIX}',
+            f'Target key: {IMAGE_KEY_RE_SUFFIX}',
             out,
         ).groupdict()
     )
-    assert source_parity.packages_hash != target_parity.packages_hash
-    assert source_parity.image_cmds_hash == target_parity.image_cmds_hash
+    assert source_key.packages_hash != target_key.packages_hash
+    assert source_key.commands_hash == target_key.commands_hash
 
     assert are_two_images_on_registry_the_same(source, target)
     assert is_local_image_the_same_on_registry(source, target)
@@ -161,7 +154,7 @@ def test_two_same_images_with_different_packages(
 
 def test_no_target(fake_docker_registry, fake_image_foo_name):
     source = get_image(fake_image_foo_name, 'foo', fake_docker_registry)
-    tag_image(fake_image_foo_name, source.registry_tag, False)
+    _tag_image(fake_image_foo_name, source.registry_tag, is_dry_run=False)
 
     expected_target = get_image(
         fake_image_foo_name,
@@ -178,10 +171,10 @@ def test_no_target(fake_docker_registry, fake_image_foo_name):
 
 def test_no_previous_image(fake_docker_registry, fake_image_foo_name):
     source = get_image(fake_image_foo_name, 'foo', fake_docker_registry)
-    tag_image(fake_image_foo_name, source.registry_tag, False)
+    _tag_image(fake_image_foo_name, source.registry_tag, is_dry_run=False)
 
     target = get_image(fake_image_foo_name, 'latest', fake_docker_registry)
-    tag_image(target.name, target.registry_tag, False)
+    _tag_image(target.name, target.registry_tag, is_dry_run=False)
 
     assert not is_image_on_registry(source)
     assert not is_image_on_registry(target)
@@ -193,10 +186,10 @@ def test_no_previous_image(fake_docker_registry, fake_image_foo_name):
 
 def test_omit_target_tag(fake_docker_registry, fake_image_foo_name):
     source = get_image(fake_image_foo_name, 'foo', fake_docker_registry)
-    tag_image(fake_image_foo_name, source.registry_tag, False)
+    _tag_image(fake_image_foo_name, source.registry_tag, is_dry_run=False)
 
     target = get_image(fake_image_foo_name, None, fake_docker_registry)
-    tag_image(target.name, target.registry_tag, False)
+    _tag_image(target.name, target.registry_tag, is_dry_run=False)
 
     assert not is_image_on_registry(source)
     assert not is_image_on_registry(target)
@@ -214,10 +207,10 @@ def test_omit_target_tag(fake_docker_registry, fake_image_foo_name):
 
 def test_source_has_no_tag(fake_docker_registry, fake_image_foo_name):
     source = get_image(fake_image_foo_name, None, fake_docker_registry)
-    tag_image(fake_image_foo_name, source.registry_tag, False)
+    _tag_image(fake_image_foo_name, source.registry_tag, is_dry_run=False)
 
     target = get_image(fake_image_foo_name, 'latest', fake_docker_registry)
-    tag_image(target.name, target.registry_tag, False)
+    _tag_image(target.name, target.registry_tag, is_dry_run=False)
 
     with pytest.raises(ValueError) as e:
         main((
@@ -235,10 +228,10 @@ def test_source_and_target_have_the_same_tag(
     fake_image_bar_name,
 ):
     source = get_image(fake_image_foo_name, 'latest', fake_docker_registry)
-    tag_image(fake_image_foo_name, source.registry_tag, False)
+    _tag_image(fake_image_foo_name, source.registry_tag, is_dry_run=False)
 
     target = get_image(fake_image_foo_name, 'latest', fake_docker_registry)
-    tag_image(target.name, target.registry_tag, False)
+    _tag_image(target.name, target.registry_tag, is_dry_run=False)
 
     with pytest.raises(ValueError) as e:
         main((
@@ -253,12 +246,12 @@ def test_source_and_target_have_the_same_tag(
 def test_image_doesnt_exist():
     source = get_image('woo', 'latest', 'woowoo.spoopy.com')
     with pytest.raises(ImageNotFoundError) as e:
-        main(('--source', source.registry_tag, '-v', '-v'))
+        main(('--source', source.registry_tag))
     assert f'The image {source.registry_tag} was not found' in str(e)
 
 
 def test_invalid_image_name():
     fake_invalid_image_name = '////'
-    with pytest.raises(subprocess.CalledProcessError) as e:
+    with pytest.raises(ImageNotFoundError) as e:
         main(('--source', fake_invalid_image_name))
-    assert f'cannot unmarshal' in e.value.stderr.decode()
+    assert f'The image {fake_invalid_image_name} was not found' in str(e)
