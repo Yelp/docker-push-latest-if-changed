@@ -1,59 +1,42 @@
 import http
 import json
-import typing
+import subprocess
 import urllib.request
+from typing import Any
+from typing import Dict
 
-from docker_push_latest_if_changed import _inspect_image
-
-
-class Image(typing.NamedTuple):
-    tag: str
-    name: str
-    registry_uri: str
-    name_tag: str
-    registry_tag: str
+from docker_push_latest_if_changed import Image
 
 
-def get_image(name, tag, registry_uri):
-    if tag:
-        name_tag = f'{name}:{tag}'
-        registry_tag = f'{registry_uri}/{name}:{tag}'
-    else:
-        name_tag = name
-        registry_tag = f'{registry_uri}/{name}'
-    return Image(
-        tag=tag,
-        name=name,
-        registry_uri=registry_uri,
-        name_tag=name_tag,
-        registry_tag=registry_tag,
-    )
-
-
-def is_image_on_registry(image):
-    manifest = None
+def is_image_on_registry(image: Image) -> bool:
     try:
-        manifest = _get_manifest(image)
+        get_manifest(image)
     except urllib.error.HTTPError as e:
         if e.getcode() == http.HTTPStatus.NOT_FOUND.value:
-            pass
+            return False
         else:
             raise
-    return True if manifest else False
+    return True
 
 
-def are_two_images_on_registry_the_same(source_image, target_image):
-    assert source_image.registry_uri == target_image.registry_uri
-    source_manifest = _get_manifest(source_image)
-    target_manifest = _get_manifest(target_image)
+def are_two_images_on_registry_the_same(
+    source_image: Image,
+    target_image: Image,
+) -> bool:
+    assert source_image.host == target_image.host
+    source_manifest = get_manifest(source_image)
+    target_manifest = get_manifest(target_image)
     return source_manifest['fsLayers'] == target_manifest['fsLayers']
 
 
-def is_local_image_the_same_on_registry(local_image, registry_image):
-    local_image_inspect = _inspect_image(local_image.name)
+def is_local_image_the_same_on_registry(
+    local_image: Image,
+    registry_image: Image,
+) -> bool:
+    local_image_inspect = inspect_image(local_image.name)
     local_image_config = local_image_inspect['Config']
 
-    registry_image_manifest = _get_manifest(registry_image)
+    registry_image_manifest = get_manifest(registry_image)
     registry_image_config = json.loads(
         registry_image_manifest['history'][0]['v1Compatibility']
     )['config']
@@ -61,9 +44,14 @@ def is_local_image_the_same_on_registry(local_image, registry_image):
     return local_image_config == registry_image_config
 
 
-def _get_manifest(image):
+def inspect_image(image_uri: str) -> Dict[str, Any]:
+    output = subprocess.check_output(('docker', 'inspect', image_uri))
+    return json.loads(output)[0]
+
+
+def get_manifest(image: Image) -> Dict[str, Any]:
     manifest_uri = (
-        f'http://{image.registry_uri}'
+        f'http://{image.host}'
         f'/v2/{image.name}/manifests/{image.tag}'
     )
     response = urllib.request.urlopen(manifest_uri).read()

@@ -1,2 +1,2 @@
-FROM    ubuntu
+FROM    ubuntu:bionic
 CMD     ["echo", "foo"]
