@@ -2,18 +2,21 @@
 import argparse
 import hashlib
 import subprocess
-import typing
+from typing import NamedTuple
+from typing import Optional
+from typing import Sequence
+from typing import Tuple
 from urllib.parse import urlparse
 
 
-class Image(typing.NamedTuple):
+class Image(NamedTuple):
     host: str
     name: str
     tag: str
     uri: str
 
 
-class ImageKey(typing.NamedTuple):
+class ImageKey(NamedTuple):
     commands_hash: str
     packages_hash: str
 
@@ -22,7 +25,7 @@ class ImageNotFoundError(ValueError):
     pass
 
 
-def main(argv=None):
+def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--source', required=True,
@@ -56,6 +59,7 @@ def main(argv=None):
         target_image.uri,
         is_dry_run=arguments.dry_run,
     )
+    return 0
 
 
 def _get_image(uri: str) -> Image:
@@ -72,7 +76,7 @@ def _get_image(uri: str) -> Image:
     return Image(host=host, name=name, tag=tag, uri=uri)
 
 
-def _validate_source(source_image: Image):
+def _validate_source(source_image: Image) -> None:
     if not source_image.tag:
         raise ValueError(
             f'The source image {source_image.uri} does not have a tag! '
@@ -106,7 +110,7 @@ def _docker_push_latest_if_changed(
     target: str,
     *,
     is_dry_run: bool
-):
+) -> None:
     print('Pushing source image')
     _push_image(source, is_dry_run=is_dry_run)
     try:
@@ -128,7 +132,7 @@ def _docker_push_latest_if_changed(
             print('Image has NOT changed. Keeping the old target.')
 
 
-def _pull_image(image_uri: str):
+def _pull_image(image_uri: str) -> None:
     pull_command = ('docker', 'pull', image_uri)
     try:
         _check_output_and_print(pull_command)
@@ -136,9 +140,9 @@ def _pull_image(image_uri: str):
         raise ImageNotFoundError(f'The image {image_uri} was not found') from e
 
 
-def _tag_image(source: str, target: str, *, is_dry_run: bool):
+def _tag_image(source: str, target: str, *, is_dry_run: bool) -> None:
     print(f'Tagging image {source} as {target}')
-    tag_command = ('docker', 'tag', source, target)
+    tag_command: Tuple[str, ...] = ('docker', 'tag', source, target)
     if is_dry_run:
         tag_command = ('#',) + tag_command
         print('Image was not actually tagged since this is a dry run')
@@ -147,9 +151,9 @@ def _tag_image(source: str, target: str, *, is_dry_run: bool):
         _check_output_and_print(tag_command)
 
 
-def _push_image(image_uri: str, *, is_dry_run: bool):
+def _push_image(image_uri: str, *, is_dry_run: bool) -> None:
     print(f'Pushing image {image_uri} ...')
-    push_command = ('docker', 'push', image_uri)
+    push_command: Tuple[str, ...] = ('docker', 'push', image_uri)
     if is_dry_run:
         push_command = ('#',) + push_command
         print('Image was not actually pushed since this is a dry run')
@@ -196,7 +200,7 @@ def _get_digest(blob: bytes) -> str:
     return hashlib.sha256(blob).hexdigest()
 
 
-def _run_in_image(image_uri: str, command: tuple) -> str:
+def _run_in_image(image_uri: str, command: Tuple[str, ...]) -> str:
     run_command = (
         'docker',
         'run',
@@ -209,7 +213,7 @@ def _run_in_image(image_uri: str, command: tuple) -> str:
     return _check_output_and_print(run_command)
 
 
-def _check_output_and_print(command: tuple) -> str:
+def _check_output_and_print(command: Tuple[str, ...]) -> str:
     print(' '.join(command))
     output = subprocess.check_output(command, encoding='utf-8')
     return output

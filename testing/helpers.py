@@ -4,6 +4,7 @@ import subprocess
 import urllib.request
 from typing import Any
 from typing import Dict
+from urllib.error import HTTPError
 
 from docker_push_latest_if_changed import Image
 
@@ -11,7 +12,7 @@ from docker_push_latest_if_changed import Image
 def is_image_on_registry(image: Image) -> bool:
     try:
         get_manifest(image)
-    except urllib.error.HTTPError as e:
+    except HTTPError as e:
         if e.getcode() == http.HTTPStatus.NOT_FOUND.value:
             return False
         else:
