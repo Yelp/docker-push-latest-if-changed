@@ -78,6 +78,7 @@ optional arguments:
   --target TARGET  Target remote image to push if the docker image is changed.
                    If omitted, the image will be $repository:latest of the
                    `--source` image.
+  --dry-run        Run command, but don't actually push or tag images.
 ```
 
 ### Usage in CI

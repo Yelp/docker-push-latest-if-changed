@@ -1,7 +1,9 @@
 *.egg-info
 *.pyc
-/.cache
+*.sw[nop]
 /.coverage
+/.pytest_cache
+/.mypy_cache
 /.tox
 /build
 /dist
