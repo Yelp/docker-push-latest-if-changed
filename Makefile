@@ -6,9 +6,9 @@ builddeb:
 	docker build -f builddeb.Dockerfile -t builddeb .
 	mkdir -p dist/
 	docker run \
-		-v $(CURDIR):/mnt:rw \
+		-v $(CURDIR)/dist:/dist:rw \
 		builddeb \
-	/bin/bash -c "debuild -us -uc -b && mv ../$(DEB_NAME) /mnt/dist"
+	/bin/bash -c "debuild -us -uc -b && mv ../$(DEB_NAME) /dist"
 
 .PHONY: itest_%
 itest_%: builddeb

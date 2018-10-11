@@ -6,4 +6,6 @@ RUN         apt-get update && apt-get install -y --no-install-recommends \
                 fakeroot \
             && apt-get clean
 
-WORKDIR     /mnt
+COPY        . /src
+
+WORKDIR     /src
