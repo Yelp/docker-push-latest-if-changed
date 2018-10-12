@@ -3,9 +3,12 @@ DEB_NAME := docker-push-latest-if-changed_$(VERSION)_all.deb
 
 .PHONY: builddeb
 builddeb:
+	docker build -f builddeb.Dockerfile -t builddeb .
 	mkdir -p dist
-	debuild -us -uc -b
-	mv ../$(DEB_NAME) dist/
+	docker run \
+		-v $(CURDIR)/dist:/dist:rw \
+		builddeb \
+	/bin/bash -c "debuild -us -uc -b && mv ../$(DEB_NAME) /dist"
 
 .PHONY: itest_%
 itest_%: builddeb
