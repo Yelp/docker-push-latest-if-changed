@@ -11,6 +11,3 @@ override_dh_auto_test:
 override_dh_install:
 	mkdir -p debian/docker-push-latest-if-changed/usr/bin
 	cp docker_push_latest_if_changed.py debian/docker-push-latest-if-changed/usr/bin/docker-push-latest-if-changed
-
-override_dh_builddeb:
-	dh_builddeb -- -Zgzip

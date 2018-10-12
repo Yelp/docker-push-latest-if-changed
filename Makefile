@@ -4,7 +4,7 @@ DEB_NAME := docker-push-latest-if-changed_$(VERSION)_all.deb
 .PHONY: builddeb
 builddeb:
 	docker build -f builddeb.Dockerfile -t builddeb .
-	mkdir -p dist/
+	mkdir -p dist
 	docker run \
 		-v $(CURDIR)/dist:/dist:rw \
 		builddeb \
