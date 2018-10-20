@@ -14,8 +14,8 @@ from testing.helpers import is_local_image_the_same_on_registry
 
 
 IMAGE_KEY_RE_SUFFIX = (
-    "ImageKey\(commands_hash='(?P<commands_hash>\w+)', "
-    "packages_hash='(?P<packages_hash>\w+)'"
+    r"ImageKey\(commands_hash='(?P<commands_hash>\w+)', "
+    r"packages_hash='(?P<packages_hash>\w+)'"
 )
 
 
