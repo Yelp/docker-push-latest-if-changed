@@ -1,6 +1,5 @@
 coverage
 ephemeral-port-reserve
-flake8
 mypy
 pre-commit
 pytest
