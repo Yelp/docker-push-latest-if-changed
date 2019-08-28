@@ -196,9 +196,9 @@ def test_source_has_no_tag(fake_docker_registry, fake_image_foo_name):
     target = _get_image(f'{fake_docker_registry}/{fake_image_foo_name}:latest')
     _tag_image(target.name, target.uri, is_dry_run=False)
 
-    with pytest.raises(ValueError) as e:
+    with pytest.raises(ValueError) as excinfo:
         main(('--source', source.uri, '--target', target.uri))
-    assert f'{source.uri} does not have a tag!' in str(e)
+    assert f'{source.uri} does not have a tag!' in str(excinfo.value)
 
 
 def test_source_and_target_have_the_same_tag(
@@ -212,20 +212,21 @@ def test_source_and_target_have_the_same_tag(
     target = _get_image(f'{fake_docker_registry}/{fake_image_foo_name}:latest')
     _tag_image(target.name, target.uri, is_dry_run=False)
 
-    with pytest.raises(ValueError) as e:
+    with pytest.raises(ValueError) as excinfo:
         main(('--source', source.uri, '--target', target.uri))
-    assert 'repo:tags cannot be the same' in str(e)
+    assert 'repo:tags cannot be the same' in str(excinfo.value)
 
 
 def test_image_doesnt_exist():
     source = _get_image('woowoo.spoopy.com/woo:latest')
-    with pytest.raises(ImageNotFoundError) as e:
+    with pytest.raises(ImageNotFoundError) as excinfo:
         main(('--source', source.uri))
-    assert f'The image {source.uri} was not found' in str(e)
+    assert f'The image {source.uri} was not found' in str(excinfo.value)
 
 
 def test_invalid_image_name():
     fake_invalid_image_name = 'lol'
-    with pytest.raises(ValueError) as e:
+    with pytest.raises(ValueError) as excinfo:
         main(('--source', fake_invalid_image_name))
-    assert f'Image uri {fake_invalid_image_name} is malformed' in str(e)
+    msg = str(excinfo.value)
+    assert f'Image uri {fake_invalid_image_name} is malformed' in msg
