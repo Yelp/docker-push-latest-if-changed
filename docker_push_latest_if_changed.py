@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.6
+#!/usr/bin/env python3
 import argparse
 import hashlib
 import subprocess
@@ -191,7 +191,19 @@ def _get_commands_hash(image_uri: str) -> str:
 
 
 def _get_packages_hash(image_uri: str) -> str:
-    packages = _run_in_image(image_uri, ('dpkg', '-l'))
+    try:
+        packages = _run_in_image(image_uri, ('dpkg', '-l'))
+    except subprocess.CalledProcessError as oserr:
+        print(f'failed. returncode={oserr.returncode}. stderr:\n{oserr.stderr}')
+        if oserr.returncode == 127:
+            # retry - maybe we have an alpine based image
+            try:
+                packages = _run_in_image(image_uri, ('apk', 'list'))
+            except subprocess.CalledProcessError as oserr:
+                print(f'failed. returncode={oserr.returncode}. stderr:\n{oserr.stderr}')
+                if oserr.returncode == 127:
+                    # retry - maybe we have an centos based image
+                    packages = _run_in_image(image_uri, ('yum', 'list', '--quiet', 'installed'))
     print(f'Packages for {image_uri}:\n{packages}')
     return _get_digest(packages.encode())
 
@@ -207,8 +219,9 @@ def _run_in_image(image_uri: str, command: Tuple[str, ...]) -> str:
         '--rm',
         '--net=none',
         '--user=nobody',
+        '--entrypoint', command[0],
         image_uri,
-        *command,
+        *command[1:],
     )
     return _check_output_and_print(run_command)
 
