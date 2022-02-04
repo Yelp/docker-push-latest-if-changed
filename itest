@@ -5,7 +5,6 @@ path="$1"
 
 apt-get update
 apt-get -y install --no-install-recommends gdebi-core software-properties-common
-add-apt-repository ppa:deadsnakes/ppa
 
 apt-get update
 gdebi -n "$path"

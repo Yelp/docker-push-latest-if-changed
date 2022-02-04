@@ -10,7 +10,7 @@ Homepage: https://github.com/Yelp/docker-push-latest-if-changed
 
 Package: docker-push-latest-if-changed
 Architecture: all
-Depends: python3.6
+Depends: python3
 Description: push a new Docker image only if changed
  docker-push-latest-if-changed compares a new Docker image to an old one,
  comparing installed system packages and commands run to generate the image.
