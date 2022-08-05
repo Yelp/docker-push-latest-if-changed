@@ -15,7 +15,9 @@ if the image actually changes in a meaningful way.
 
 ### python installation
 
-`pip install docker-push-latest-if-changed`
+```bash
+pip install docker-push-latest-if-changed
+```
 
 ### debian installation
 
