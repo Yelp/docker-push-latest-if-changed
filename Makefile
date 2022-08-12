@@ -1,4 +1,4 @@
-VERSION := 0.0.1
+VERSION := 0.0.2
 DEB_NAME := docker-push-latest-if-changed_$(VERSION)_all.deb
 
 .PHONY: builddeb
