@@ -95,7 +95,7 @@ def _get_sanitized_target(target: str, source_image: Image) -> Image:
         target_image = _get_image(target)
     else:
         default_target = f'{source_image.host}/{source_image.name}:latest'
-        print('Target was not given, so using default "{default_target}"')
+        print(f'Target was not given, so using default "{default_target!r}"')
         target_image = _get_image(f'{default_target}')
     if source_image == target_image:
         raise ValueError(
