@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import subprocess
+import random
 from typing import NamedTuple
 from typing import Optional
 from typing import Sequence
@@ -191,7 +192,25 @@ def _get_commands_hash(image_uri: str) -> str:
 
 
 def _get_packages_hash(image_uri: str) -> str:
-    packages = _run_in_image(image_uri, ('dpkg', '-l'))
+    try:
+        packages = _run_in_image(image_uri, ('dpkg', '-l'))
+    except subprocess.CalledProcessError as oserr:
+        if oserr.returncode != 127:
+            print(f'failed. returncode={oserr.returncode}. stderr:\n{oserr.stderr}')
+        else:
+            # retry - maybe we have an alpine based image
+            try:
+                packages = _run_in_image(image_uri, ('apk', 'list'))
+            except subprocess.CalledProcessError as oserr:
+                if oserr.returncode == 1:
+                    # return code 1 seems ok here
+                    packages = oserr.stdout
+                elif oserr.returncode != 127:
+                    print(f'failed. returncode={oserr.returncode}. stdout:\n{oserr.stdout}\nstderr:\n{oserr.stderr}')
+                    raise
+                else:
+                    # retry - maybe we have an centos based image
+                    packages = _run_in_image(image_uri, ('yum', 'list', '--quiet', 'installed'))
     print(f'Packages for {image_uri}:\n{packages}')
     return _get_digest(packages.encode())
 
@@ -207,15 +226,17 @@ def _run_in_image(image_uri: str, command: Tuple[str, ...]) -> str:
         '--rm',
         '--net=none',
         '--user=nobody',
+        '--name', 'tmp_' + str(random.randint(10000, 50000)),
+        '--entrypoint', command[0],
         image_uri,
-        *command,
+        *command[1:],
     )
     return _check_output_and_print(run_command)
 
 
 def _check_output_and_print(command: Tuple[str, ...]) -> str:
     print(' '.join(command))
-    output = subprocess.check_output(command, encoding='utf-8')
+    output = subprocess.check_output(command, encoding='utf-8', stderr=subprocess.STDOUT)
     return output
 
 
